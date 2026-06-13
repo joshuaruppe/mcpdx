@@ -16,6 +16,7 @@
 ![Dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen)
 ![MCP](https://img.shields.io/badge/MCP-2025--11--25-8A2BE2)
 ![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-lightgrey)
+![License](https://img.shields.io/badge/license-MIT-green)
 ![Use](https://img.shields.io/badge/use-authorized_testing_only-red)
 
 </div>
@@ -336,6 +337,4 @@ mcpdx/
 
 ## License
 
-No license has been chosen yet. Until a `LICENSE` file is added, default
-copyright applies (all rights reserved). If you intend this to be open source,
-add one. MIT is a common, permissive choice for tooling like this.
+Released under the [MIT License](LICENSE). © 2026 Joshua Ruppe.
