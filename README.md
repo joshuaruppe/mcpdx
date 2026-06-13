@@ -36,16 +36,22 @@ console or export as JSON, Markdown, or SARIF, with CI-friendly exit codes.
 
 ## Contents
 
-- [Features](#features)
-- [Install](#install)
-- [Quick start](#quick-start)
-- [Commands](#commands)
-- [Launch options](#launch-options)
-- [Examples](#examples)
-- [What it checks](#what-it-checks)
-- [Exit codes](#exit-codes)
-- [Project layout](#project-layout)
-- [License](#license)
+- [mcpdx · MCP Doctor](#mcpdx--mcp-doctor)
+  - [Contents](#contents)
+  - [Features](#features)
+  - [Install](#install)
+  - [Quick start](#quick-start)
+  - [Commands](#commands)
+  - [Launch options](#launch-options)
+  - [Examples](#examples)
+  - [What it checks](#what-it-checks)
+    - [Passive (static, no tool is invoked)](#passive-static-no-tool-is-invoked)
+    - [Active (only with `--active` / `fuzz`, invokes tools)](#active-only-with---active--fuzz-invokes-tools)
+    - [Access-control \& session probes (HTTP, read-only, run automatically by `audit`/`scan`)](#access-control--session-probes-http-read-only-run-automatically-by-auditscan)
+    - [Capability drift / rug-pull detection (`audit`/`scan`, read-only)](#capability-drift--rug-pull-detection-auditscan-read-only)
+  - [Exit codes](#exit-codes)
+  - [Project layout](#project-layout)
+  - [License](#license)
 
 ## Features
 
@@ -312,7 +318,6 @@ mcpdx/
 ├── mcpdx.py                      CLI entry point (launch options, subcommands, banner)
 ├── requirements.txt              (empty) zero runtime deps; stdlib only
 ├── mcpcore/
-│   ├── __init__.py
 │   ├── log.py                    verbosity-aware colour logger (-v / -vv)
 │   ├── transport.py              stdio + Streamable HTTP JSON-RPC transports
 │   ├── client.py                 MCP client (handshake, enumeration, invocation)
