@@ -35,17 +35,17 @@ console or export as JSON, Markdown, or SARIF, with CI-friendly exit codes.
   - [Contents](#contents)
   - [Features](#features)
   - [Install](#install)
-  - [Quick start](#quick-start)
-  - [Commands](#commands)
-  - [Launch options](#launch-options)
+  - [Quick Start](#quick-start)
+  - [Subcommands](#subcommands)
+  - [Flags](#flags)
   - [Examples](#examples)
-  - [What it checks](#what-it-checks)
+  - [Detections](#detections)
     - [Passive (static, no tool is invoked)](#passive-static-no-tool-is-invoked)
     - [Active (only with `--active` / `fuzz`, invokes tools)](#active-only-with---active--fuzz-invokes-tools)
     - [Access-control \& session probes (HTTP, read-only, run automatically by `audit`/`scan`)](#access-control--session-probes-http-read-only-run-automatically-by-auditscan)
     - [Capability drift / rug-pull detection (`audit`/`scan`, read-only)](#capability-drift--rug-pull-detection-auditscan-read-only)
-  - [Exit codes](#exit-codes)
-  - [Project layout](#project-layout)
+  - [Exit Codes](#exit-codes)
+  - [Project Structure](#project-structure)
   - [License](#license)
 
 ## Features
@@ -74,7 +74,7 @@ git clone <repo> mcpdx && cd mcpdx
 python mcpdx.py --help        # nothing to install; stdlib only
 ```
 
-## Quick start
+## Quick Start
 
 ```bash
 # Passive audit (read-only) of a local stdio server
@@ -87,7 +87,7 @@ python mcpdx.py scan --stdio "python my_server.py" --active --json out.json --md
 python mcpdx.py scan --stdio "python examples/vulnerable_server.py" --active --yes
 ```
 
-## Commands
+## Subcommands
 
 | Command | What it does | Touches the target? |
 |---------|--------------|---------------------|
@@ -99,7 +99,7 @@ python mcpdx.py scan --stdio "python examples/vulnerable_server.py" --active --y
 | `call`  | Manually invoke one tool / read a resource / get a prompt | yes (one call) |
 | `report` | Re-render a saved scan (by `--name` or path) to SARIF / Markdown **offline**; `--list` to list saved scans | no (reads a file) |
 
-## Launch options
+## Flags
 
 <details>
 <summary><b>Transport</b> (choose exactly one)</summary>
@@ -211,7 +211,7 @@ python mcpdx.py audit --http http://127.0.0.1:8765/mcp -H "Authorization: Bearer
 > [!WARNING]
 > The files in `examples/` are **test fixtures only**. Never deploy them.
 
-## What it checks
+## Detections
 
 ### Passive (static, no tool is invoked)
 
@@ -294,7 +294,7 @@ access control, tool poisoning, parameter injection/ACE, output poisoning,
 tool-name collision, token/session security, transport security, capability
 drift / rug pulls, and known-vulnerability tracking.
 
-## Exit codes
+## Exit Codes
 
 `mcpdx` is CI-friendly. The process exit code reflects the worst finding:
 
@@ -306,7 +306,7 @@ drift / rug pulls, and known-vulnerability tracking.
 | `2` | Authorization declined |
 | `4` | Connection / protocol error |
 
-## Project layout
+## Project Structure
 
 ```
 mcpdx/
