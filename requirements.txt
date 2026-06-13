@@ -1,0 +1,4 @@
+# mcpdx has no third-party dependencies — it runs on the Python 3.8+
+# standard library only (subprocess, urllib, json, threading, argparse).
+#
+# This keeps the tool portable and easy to drop onto an engagement box.
