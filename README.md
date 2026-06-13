@@ -308,21 +308,25 @@ drift / rug pulls, and known-vulnerability tracking.
 ## Project layout
 
 ```
-mcpdx.py                   CLI entry point (launch options, subcommands, banner)
-mcpcore/
-  log.py                   verbosity-aware colour logger (-v / -vv)
-  transport.py             stdio + Streamable HTTP JSON-RPC transports
-  client.py                MCP client (handshake, enumeration, invocation)
-  payloads.py              detection signatures + active payloads
-  audit.py                 passive static auditor (poisoning, collision, CVE, …)
-  fuzz.py                  active fuzzer (+ live output-poisoning scan)
-  probes.py                HTTP auth-boundary + session-validation probes
-  netprobe.py              TLS posture / downgrade + rate-limit probes
-  drift.py                 capability-drift / rug-pull detection
-  report.py                Finding model + console / JSON / Markdown renderers
-  sarif.py                 SARIF 2.1.0 renderer (offline; GitHub Code Scanning)
-examples/vulnerable_server.py    stdio test fixture
-examples/insecure_http_server.py HTTP test fixture (CVE / auth / session)
+mcpdx/
+├── mcpdx.py                      CLI entry point (launch options, subcommands, banner)
+├── requirements.txt              (empty) zero runtime deps; stdlib only
+├── mcpcore/
+│   ├── __init__.py
+│   ├── log.py                    verbosity-aware colour logger (-v / -vv)
+│   ├── transport.py              stdio + Streamable HTTP JSON-RPC transports
+│   ├── client.py                 MCP client (handshake, enumeration, invocation)
+│   ├── payloads.py               detection signatures + active payloads
+│   ├── audit.py                  passive static auditor (poisoning, collision, CVE, …)
+│   ├── fuzz.py                   active fuzzer (+ live output-poisoning scan)
+│   ├── probes.py                 HTTP auth-boundary + session-validation probes
+│   ├── netprobe.py               TLS posture / downgrade + rate-limit probes
+│   ├── drift.py                  capability-drift / rug-pull detection
+│   ├── report.py                 Finding model + console / JSON / Markdown renderers
+│   └── sarif.py                  SARIF 2.1.0 renderer (offline; GitHub Code Scanning)
+└── examples/
+    ├── vulnerable_server.py      stdio test fixture
+    └── insecure_http_server.py   HTTP test fixture (CVE / auth / session)
 ```
 
 ## License
