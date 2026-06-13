@@ -1,14 +1,8 @@
 <div align="center">
-<pre>
-                          _
- _ __ ___   ___ _ __   __| |_  __
-| '_ ` _ \ / __| '_ \ / _` \ \/ /
-| | | | | | (__| |_) | (_| |&gt;  &lt;
-|_| |_| |_|\___| .__/ \__,_/_/\_\
-               |_|
-</pre>
 
-# mcpdx · MCP Doctor
+<img src="https://raw.githubusercontent.com/joshuaruppe/mcpdx/main/assets/banner.svg" alt="mcpdx" width="430">
+
+# mcpdx
 
 **A security checkup for MCP servers**
 
@@ -37,7 +31,7 @@ console or export as JSON, Markdown, or SARIF, with CI-friendly exit codes.
 
 ## Contents
 
-- [mcpdx · MCP Doctor](#mcpdx--mcp-doctor)
+- [mcpdx](#mcpdx)
   - [Contents](#contents)
   - [Features](#features)
   - [Install](#install)
