@@ -44,7 +44,7 @@ console or export as JSON, Markdown, or SARIF, with CI-friendly exit codes.
     - [Active (only with `--active` / `fuzz`, invokes tools)](#active-only-with---active--fuzz-invokes-tools)
     - [Access-control \& session probes (HTTP, read-only, run automatically by `audit`/`scan`)](#access-control--session-probes-http-read-only-run-automatically-by-auditscan)
     - [Capability drift / rug-pull detection (`audit`/`scan`, read-only)](#capability-drift--rug-pull-detection-auditscan-read-only)
-  - [Exit C odes](#exit-c-odes)
+  - [Exit Codes](#exit-codes)
   - [Project Structure](#project-structure)
   - [License](#license)
 
@@ -76,12 +76,19 @@ python mcpdx.py --help        # nothing to install; stdlib only
 
 ## Quick Start
 
+`mcpdx` reaches a server two ways: spawn a local one over **stdio** (`--stdio`),
+or connect to a remote one over **HTTP(S)** (`--http`). Every command works with
+either transport.
+
 ```bash
 # Passive audit (read-only) of a local stdio server
 python mcpdx.py audit --stdio "python my_server.py"
 
-# Full assessment incl. ACTIVE fuzzing, with JSON + Markdown reports
-python mcpdx.py scan --stdio "python my_server.py" --active --json out.json --md out.md
+# ...or a remote server over HTTP(S), with an auth header
+python mcpdx.py audit --http https://mcp.example.com/mcp -H "Authorization: Bearer $TOKEN"
+
+# Full assessment incl. ACTIVE fuzzing, with JSON + Markdown reports (remote or local)
+python mcpdx.py scan --http https://mcp.example.com/mcp --active --json out.json --md out.md
 
 # Try it against the bundled vulnerable fixture
 python mcpdx.py scan --stdio "python examples/vulnerable_server.py" --active --yes
@@ -294,7 +301,7 @@ access control, tool poisoning, parameter injection/ACE, output poisoning,
 tool-name collision, token/session security, transport security, capability
 drift / rug pulls, and known-vulnerability tracking.
 
-## Exit C odes
+## Exit Codes
 
 `mcpdx` is CI-friendly. The process exit code reflects the worst finding:
 
