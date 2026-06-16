@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """A deliberately-vulnerable MCP server for exercising mcpdx.
 
-stdio transport, newline-delimited JSON-RPC. It intentionally exposes several
-weaknesses (tool poisoning, path traversal, command injection, info
+Local (spawned) transport, newline-delimited JSON-RPC. It intentionally exposes
+several weaknesses (tool poisoning, path traversal, command injection, info
 disclosure, hidden unicode) so the scanner has something to find.
 
-  python mcpdx.py scan --stdio "python examples/vulnerable_server.py" --active --yes
+  python mcpdx.py scan --local "python examples/vulnerable_server.py" --active --yes
 
 DO NOT deploy this. It exists only as a test fixture.
 """

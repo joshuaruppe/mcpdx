@@ -6,7 +6,7 @@ implementations omit authentication entirely") and **token/session security**
 
 The probes are read-only — they only attempt `initialize` + `tools/list` — but
 they DO open additional connections, so they run as part of an authorized
-assessment. They are HTTP-only; stdio servers inherit the trust of the local
+assessment. They are HTTP-only; local servers inherit the trust of the spawning
 process and have no network auth boundary to test.
 """
 

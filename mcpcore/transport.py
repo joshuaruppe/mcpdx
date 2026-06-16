@@ -2,7 +2,7 @@
 
 Two transports are supported:
 
-* ``StdioTransport``  -- spawn a local process and exchange newline-delimited
+* ``LocalTransport``  -- spawn a local process and exchange newline-delimited
   JSON-RPC messages over its stdin/stdout (the most common MCP deployment).
 * ``HttpTransport``   -- the "Streamable HTTP" transport: POST JSON-RPC to a
   single endpoint, parsing either a JSON body or an SSE (text/event-stream)
@@ -64,9 +64,9 @@ class BaseTransport:
 
 
 # --------------------------------------------------------------------------- #
-#  stdio                                                                       #
+#  local (spawned process)                                                     #
 # --------------------------------------------------------------------------- #
-class StdioTransport(BaseTransport):
+class LocalTransport(BaseTransport):
     def __init__(self, command, log, env=None, cwd=None):
         super().__init__(log)
         if isinstance(command, str):
@@ -102,7 +102,7 @@ class StdioTransport(BaseTransport):
         self._reader.start()
         self._stderr_reader = threading.Thread(target=self._read_stderr, daemon=True)
         self._stderr_reader.start()
-        self.log.ok(f"stdio transport up (pid {self.proc.pid})")
+        self.log.ok(f"local transport up (pid {self.proc.pid})")
 
     def _read_stdout(self) -> None:
         assert self.proc and self.proc.stdout
@@ -155,7 +155,7 @@ class StdioTransport(BaseTransport):
                     self.proc.kill()
                 except Exception:
                     pass
-        self.log.debug("stdio transport closed")
+        self.log.debug("local transport closed")
 
 
 # --------------------------------------------------------------------------- #

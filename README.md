@@ -17,10 +17,11 @@
 
 `mcpdx` is a zero-dependency toolkit for **authorized** security assessment of
 [Model Context Protocol](https://modelcontextprotocol.io) servers. It connects
-over **stdio** or **Streamable HTTP**, enumerates the exposed attack surface
-(tools, resources, prompts), runs a **passive static audit**, and, only when you
-explicitly opt in, **actively fuzzes** tool inputs. Findings render to the
-console or export as JSON, Markdown, or SARIF, with CI-friendly exit codes.
+to a **local** (spawned) server or a **Streamable HTTP** endpoint, enumerates
+the exposed attack surface (tools, resources, prompts), runs a **passive static
+audit**, and, only when you explicitly opt in, **actively fuzzes** tool inputs.
+Findings render to the console or export as JSON, Markdown, or SARIF, with
+CI-friendly exit codes.
 
 > [!CAUTION]
 > This tool can invoke a target server's tools with attack payloads, which may
@@ -51,7 +52,7 @@ console or export as JSON, Markdown, or SARIF, with CI-friendly exit codes.
 ## Features
 
 - 🔍 **Enumerate** the full declared surface (tools, resources, resource
-  templates, and prompts) over stdio or Streamable HTTP.
+  templates, and prompts) on a local or Streamable HTTP server.
 - 🛡️ **Passive static audit**: tool/prompt poisoning, hidden Unicode, tool-name
   collision, sensitive-capability and input-validation gaps, risky `icons[]`
   sources, and known-CVE flagging. No tool is ever invoked.
@@ -76,13 +77,13 @@ python mcpdx.py --help        # nothing to install; stdlib only
 
 ## Quick Start
 
-`mcpdx` reaches a server two ways: spawn a local one over **stdio** (`--stdio`),
+`mcpdx` reaches a server two ways: spawn a **local** one (`--local`),
 or connect to a remote one over **HTTP(S)** (`--http`). Every command works with
 either transport.
 
 ```bash
-# Passive audit (read-only) of a local stdio server
-python mcpdx.py audit --stdio "python my_server.py"
+# Passive audit (read-only) of a local server
+python mcpdx.py audit --local "python my_server.py"
 
 # ...or a remote server over HTTP(S), with an auth header
 python mcpdx.py audit --http https://mcp.example.com/mcp -H "Authorization: Bearer $TOKEN"
@@ -91,7 +92,7 @@ python mcpdx.py audit --http https://mcp.example.com/mcp -H "Authorization: Bear
 python mcpdx.py scan --http https://mcp.example.com/mcp --active --json out.json --md out.md
 
 # Try it against the bundled vulnerable fixture
-python mcpdx.py scan --stdio "python examples/vulnerable_server.py" --active --yes
+python mcpdx.py scan --local "python examples/vulnerable_server.py" --active --yes
 ```
 
 ## Subcommands
@@ -113,11 +114,11 @@ python mcpdx.py scan --stdio "python examples/vulnerable_server.py" --active --y
 
 | Flag | Meaning |
 |------|---------|
-| `--stdio "CMD …"` | Spawn a local MCP server; pass the full command line as one string |
+| `--local "CMD …"` | Spawn a local MCP server; pass the full command line as one string |
 | `--http URL` | Connect to a Streamable HTTP MCP endpoint |
 | `-H, --header "K: V"` | Add an HTTP header (repeatable), e.g. `-H "Authorization: Bearer …"` |
-| `-e, --env "K=V"` | Set an env var for the spawned stdio server (repeatable) |
-| `--cwd DIR` | Working directory for the stdio server |
+| `-e, --env "K=V"` | Set an env var for the spawned local server (repeatable) |
+| `--cwd DIR` | Working directory for the local server |
 | `--insecure` | Disable TLS certificate verification (HTTP) |
 | `--timeout SEC` | Per-request timeout (default 30) |
 
@@ -167,21 +168,21 @@ python mcpdx.py scan --stdio "python examples/vulnerable_server.py" --active --y
 ## Examples
 
 ```bash
-# Enumerate a local stdio server
-python mcpdx.py enum --stdio "npx -y @modelcontextprotocol/server-filesystem ./data"
+# Enumerate a local server
+python mcpdx.py enum --local "npx -y @modelcontextprotocol/server-filesystem ./data"
 
 # Passive audit of a remote HTTP server, verbose, export Markdown
 python mcpdx.py audit --http https://mcp.example.com/mcp -v --md report.md \
     -H "Authorization: Bearer $TOKEN"
 
 # Full assessment including ACTIVE fuzzing, JSON + Markdown reports
-python mcpdx.py scan --stdio "python my_server.py" --active --json out.json --md out.md
+python mcpdx.py scan --local "python my_server.py" --active --json out.json --md out.md
 
 # Audit and emit SARIF for upload to GitHub Code Scanning
-python mcpdx.py audit --stdio "python my_server.py" --sarif mcpdx.sarif
+python mcpdx.py audit --local "python my_server.py" --sarif mcpdx.sarif
 
 # Name a scan, then re-render it later by name (offline, no re-scan)
-python mcpdx.py scan --stdio "python my_server.py" --name prod-api
+python mcpdx.py scan --local "python my_server.py" --name prod-api
 python mcpdx.py report prod-api --sarif mcpdx.sarif --md report.md
 python mcpdx.py report --list            # show saved scans
 
@@ -189,26 +190,26 @@ python mcpdx.py report --list            # show saved scans
 python mcpdx.py report report.json --sarif mcpdx.sarif
 
 # Trace every JSON-RPC frame
-python mcpdx.py audit --stdio "python my_server.py" -vv
+python mcpdx.py audit --local "python my_server.py" -vv
 
 # Manually invoke a single tool
-python mcpdx.py call --stdio "python my_server.py" \
+python mcpdx.py call --local "python my_server.py" \
     --tool read_file --args '{"path":"README.md"}'
 
 # Snapshot now, then diff on a retest to catch capability drift / rug pulls
-python mcpdx.py snapshot --stdio "python my_server.py" --out baseline.json
-python mcpdx.py audit --stdio "python my_server.py" --baseline baseline.json
+python mcpdx.py snapshot --local "python my_server.py" --out baseline.json
+python mcpdx.py audit --local "python my_server.py" --baseline baseline.json
 
 # Watch a server for a post-usage definition swap
-python mcpdx.py audit --stdio "python my_server.py" --watch 3 --watch-interval 5
+python mcpdx.py audit --local "python my_server.py" --watch 3 --watch-interval 5
 ```
 
 A deliberately-vulnerable demo server lives in [`examples/`](examples/) so you
 can see findings without pointing the tool at anything real:
 
 ```bash
-# stdio fixture: poisoning, collision, command injection, output poisoning, …
-python mcpdx.py scan --stdio "python examples/vulnerable_server.py" --active --yes
+# local fixture: poisoning, collision, command injection, output poisoning, …
+python mcpdx.py scan --local "python examples/vulnerable_server.py" --active --yes
 
 # HTTP fixture: CVE flag, auth-boundary, forged-session findings
 python examples/insecure_http_server.py 8765 &
@@ -321,7 +322,7 @@ mcpdx/
 ├── requirements.txt              (empty) zero runtime deps; stdlib only
 ├── mcpcore/
 │   ├── log.py                    verbosity-aware colour logger (-v / -vv)
-│   ├── transport.py              stdio + Streamable HTTP JSON-RPC transports
+│   ├── transport.py              local + Streamable HTTP JSON-RPC transports
 │   ├── client.py                 MCP client (handshake, enumeration, invocation)
 │   ├── payloads.py               detection signatures + active payloads
 │   ├── audit.py                  passive static auditor (poisoning, collision, CVE, …)
@@ -332,7 +333,7 @@ mcpdx/
 │   ├── report.py                 Finding model + console / JSON / Markdown renderers
 │   └── sarif.py                  SARIF 2.1.0 renderer (offline; GitHub Code Scanning)
 └── examples/
-    ├── vulnerable_server.py      stdio test fixture
+    ├── vulnerable_server.py      local test fixture
     └── insecure_http_server.py   HTTP test fixture (CVE / auth / session)
 ```
 

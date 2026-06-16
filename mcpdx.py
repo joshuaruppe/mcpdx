@@ -2,23 +2,23 @@
 """mcpdx (MCP Doctor) — MCP server security assessment toolkit.
 
 A pentester's companion for *authorized* testing of Model Context Protocol
-(MCP) servers. Connects over stdio or Streamable HTTP, enumerates the exposed
-attack surface, performs a static security audit, and — only when explicitly
-authorized — actively fuzzes tool inputs.
+(MCP) servers. Connects to a local (spawned) server or a Streamable HTTP
+endpoint, enumerates the exposed attack surface, performs a static security
+audit, and — only when explicitly authorized — actively fuzzes tool inputs.
 
 Examples
 --------
-  # Enumerate a local stdio server
-  python mcpdx.py enum --stdio "npx -y @modelcontextprotocol/server-filesystem ./data"
+  # Enumerate a local server
+  python mcpdx.py enum --local "npx -y @modelcontextprotocol/server-filesystem ./data"
 
   # Static audit of a remote HTTP server, verbose, write a markdown report
   python mcpdx.py audit --http https://mcp.example.com/mcp -v --md report.md
 
   # Full assessment incl. ACTIVE fuzzing (requires authorization ack)
-  python mcpdx.py scan --stdio "python my_server.py" --active --md report.md
+  python mcpdx.py scan --local "python my_server.py" --active --md report.md
 
   # Manually invoke a single tool
-  python mcpdx.py call --stdio "python my_server.py" --tool read_file \
+  python mcpdx.py call --local "python my_server.py" --tool read_file \
         --args '{"path":"README.md"}'
 """
 
@@ -53,7 +53,7 @@ from mcpcore.netprobe import RateLimitProbe, TlsProbe
 from mcpcore.probes import AuthSessionProbe
 from mcpcore import report as R
 from mcpcore import sarif
-from mcpcore.transport import HttpTransport, StdioTransport, TransportError
+from mcpcore.transport import HttpTransport, LocalTransport, TransportError
 
 
 # --------------------------------------------------------------------------- #
@@ -104,15 +104,15 @@ def build_parser() -> argparse.ArgumentParser:
     # ---- shared option groups (attached to each subcommand) ----
     transport = argparse.ArgumentParser(add_help=False)
     tg = transport.add_argument_group("transport (choose one)")
-    tg.add_argument("--stdio", metavar="CMD",
+    tg.add_argument("--local", metavar="CMD",
                     help="spawn a local MCP server; full command line as one string")
     tg.add_argument("--http", metavar="URL",
                     help="connect to a Streamable HTTP MCP endpoint")
     tg.add_argument("-H", "--header", action="append", default=[], metavar="K:V",
                     help="extra HTTP header (repeatable); e.g. -H 'Authorization: Bearer …'")
     tg.add_argument("-e", "--env", action="append", default=[], metavar="K=V",
-                    help="env var for the spawned stdio server (repeatable)")
-    tg.add_argument("--cwd", metavar="DIR", help="working directory for the stdio server")
+                    help="env var for the spawned local server (repeatable)")
+    tg.add_argument("--cwd", metavar="DIR", help="working directory for the local server")
     tg.add_argument("--insecure", action="store_true",
                     help="disable TLS certificate verification (HTTP transport)")
     tg.add_argument("--timeout", type=float, default=30.0, metavar="SEC",
@@ -215,10 +215,10 @@ def make_logger(args) -> Logger:
 
 
 def build_transport(args, log):
-    if bool(args.stdio) == bool(args.http):
-        raise SystemExit("error: choose exactly one transport: --stdio CMD or --http URL")
+    if bool(args.local) == bool(args.http):
+        raise SystemExit("error: choose exactly one transport: --local CMD or --http URL")
 
-    if args.stdio:
+    if args.local:
         env = None
         if args.env:
             env = dict(os.environ)
@@ -227,8 +227,8 @@ def build_transport(args, log):
                     raise SystemExit(f"error: --env expects K=V, got {kv!r}")
                 k, v = kv.split("=", 1)
                 env[k] = v
-        return StdioTransport(args.stdio, log, env=env, cwd=args.cwd), {
-            "transport": "stdio", "target": args.stdio,
+        return LocalTransport(args.local, log, env=env, cwd=args.cwd), {
+            "transport": "local", "target": args.local,
         }
 
     headers = {}
@@ -437,7 +437,7 @@ def cmd_enum(args, log):
 def run_probes(session, args, log):
     """Read-only access-control / session / TLS probes (HTTP only)."""
     if session.get("transport") != "http":
-        log.debug("auth/session/TLS probes skipped (stdio transport)")
+        log.debug("auth/session/TLS probes skipped (local transport)")
         return []
     findings = []
     findings += AuthSessionProbe(log, session["url"], session.get("headers", {}),
@@ -688,7 +688,7 @@ def main(argv=None) -> int:
 
     log = make_logger(args)
     if not args.no_banner and not args.quiet:
-        target = (getattr(args, "stdio", None) or getattr(args, "http", None)
+        target = (getattr(args, "local", None) or getattr(args, "http", None)
                   or getattr(args, "input", None) or "?")
         log.out(render_banner(color=log.color, subtitle=f"target: {target}"))
 
