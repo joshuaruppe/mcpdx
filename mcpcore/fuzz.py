@@ -65,6 +65,12 @@ class Fuzzer:
             self.log.debug(f"tool '{name}' has no string params; skipping injection")
             return
 
+        # Baseline (no-payload) response for differential detection: an indicator
+        # that already fires on the benign baseline — e.g. a tool that naturally
+        # returns "49" — must NOT be attributed to a payload. This is what keeps
+        # the always-on SSTI 7*7=49 canary from false-flagging ordinary tools.
+        baseline_text = self._safe_call(name, self._baseline_args(schema)) or ""
+
         classes = payloads.match_capability(name, tool.get("description", "") or "")
 
         families = []
@@ -87,13 +93,13 @@ class Fuzzer:
 
         for fam_name, fam_payloads, indicators, sev in families:
             self._inject_family(name, schema, str_params, fam_name,
-                                fam_payloads, indicators, sev)
+                                fam_payloads, indicators, sev, baseline_text)
 
         if self.include_robustness:
             self._robustness(name, schema, str_params)
 
     def _inject_family(self, tool, schema, str_params, fam_name,
-                       fam_payloads, indicators, sev) -> None:
+                       fam_payloads, indicators, sev, baseline_text="") -> None:
         plist = fam_payloads
         if self.max_payloads:
             plist = plist[: self.max_payloads]
@@ -109,7 +115,11 @@ class Fuzzer:
                 # the payload back: strip the literal payload before matching,
                 # so only genuinely *new* response content can trip a signature.
                 probe = text.replace(str(payload), " ")
-                if any(rx.search(probe) for rx in indicators):
+                # Differential: ignore any indicator that already fires on the
+                # benign baseline response (the tool emits it regardless of our
+                # payload), so only payload-attributable matches count.
+                if any(rx.search(probe) and not rx.search(baseline_text)
+                       for rx in indicators):
                     self._add(
                         title=f"{fam_name.replace('-', ' ').title()} indicator in response",
                         severity=sev,

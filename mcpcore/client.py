@@ -95,6 +95,11 @@ class MCPClient:
                 "clientInfo": {"name": client_name, "version": client_version},
             },
         )
+        # A conformant server returns an object here, but this tool is pointed at
+        # untrusted/malformed servers; tolerate a null/non-object result instead
+        # of crashing with AttributeError.
+        if not isinstance(result, dict):
+            result = {}
         self.server_info = result.get("serverInfo", {})
         self.capabilities = result.get("capabilities", {})
         self.protocol_version = result.get("protocolVersion")
@@ -113,6 +118,9 @@ class MCPClient:
             except RpcError as e:
                 self.log.debug(f"{method} not supported / errored: {e}")
                 return items
+            if not isinstance(result, dict):
+                self.log.debug(f"{method} returned a non-object result; stopping")
+                break
             items.extend(result.get(key, []))
             cursor = result.get("nextCursor")
             if not cursor:

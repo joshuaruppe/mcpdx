@@ -92,75 +92,113 @@ def render_banner(color: bool = True, subtitle: str = "") -> str:
 # --------------------------------------------------------------------------- #
 #  Argument parsing                                                            #
 # --------------------------------------------------------------------------- #
-def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
-        prog="mcpdx",
-        description="MCP server security assessment toolkit (authorized testing only).",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__.split("Examples")[1] if "Examples" in __doc__ else None,
-    )
-    p.add_argument("--version", action="version", version=f"mcpdx {__version__}")
+def _shared_parsers(suppress: bool):
+    """Build the transport / output / drift option groups.
 
-    # ---- shared option groups (attached to each subcommand) ----
+    The returned parsers are attached BOTH to the top-level parser (with their
+    real defaults) and to every subcommand (with ``argparse.SUPPRESS`` defaults).
+    That lets a shared flag be written either before OR after the subcommand —
+    ``mcpdx --insecure audit …`` and ``mcpdx audit … --insecure`` both parse — so
+    users reaching for curl's position-independent ``-k/--insecure`` aren't
+    bounced to the usage page. SUPPRESS on the subcommand copy is what makes this
+    safe: an unspecified flag there leaves the namespace untouched instead of
+    overwriting a value already parsed before the subcommand with its default.
+
+    The two repeatable (``append``) flags need extra care: argparse parses a
+    subcommand's args into a fresh namespace and copies the result back, so an
+    ``append`` on the subcommand copy can't see values collected before the
+    subcommand. To avoid silently dropping (e.g.) an ``Authorization`` header
+    written before the subcommand, the top-level copy stores under a separate
+    ``pre_*`` dest and ``main()`` unions the two lists.
+    """
+    def d(real):
+        return argparse.SUPPRESS if suppress else real
+
     transport = argparse.ArgumentParser(add_help=False)
     tg = transport.add_argument_group("transport (choose one)")
-    tg.add_argument("--local", metavar="CMD",
+    tg.add_argument("--local", metavar="CMD", default=d(None),
                     help="spawn a local MCP server; full command line as one string")
-    tg.add_argument("--http", metavar="URL",
+    tg.add_argument("--http", metavar="URL", default=d(None),
                     help="connect to a Streamable HTTP MCP endpoint")
-    tg.add_argument("-H", "--header", action="append", default=[], metavar="K:V",
+    tg.add_argument("-H", "--header", action="append", default=[],
+                    dest="header" if suppress else "pre_header", metavar="K:V",
                     help="extra HTTP header (repeatable); e.g. -H 'Authorization: Bearer …'")
-    tg.add_argument("-e", "--env", action="append", default=[], metavar="K=V",
+    tg.add_argument("-e", "--env", action="append", default=[],
+                    dest="env" if suppress else "pre_env", metavar="K=V",
                     help="env var for the spawned local server (repeatable)")
-    tg.add_argument("--cwd", metavar="DIR", help="working directory for the local server")
-    tg.add_argument("--insecure", action="store_true",
+    tg.add_argument("--cwd", metavar="DIR", default=d(None),
+                    help="working directory for the local server")
+    tg.add_argument("--insecure", action="store_true", default=d(False),
                     help="disable TLS certificate verification (HTTP transport)")
-    tg.add_argument("--timeout", type=float, default=30.0, metavar="SEC",
+    tg.add_argument("--timeout", type=float, default=d(30.0), metavar="SEC",
                     help="per-request timeout in seconds (default 30)")
 
     output = argparse.ArgumentParser(add_help=False)
     og = output.add_argument_group("output / verbosity")
-    og.add_argument("-v", "--verbose", action="count", default=0,
+    og.add_argument("-v", "--verbose", action="count", default=d(0),
                     help="-v debug, -vv trace (raw JSON-RPC frames)")
-    og.add_argument("-q", "--quiet", action="store_true", help="suppress log chatter")
-    og.add_argument("--no-color", action="store_true", help="disable ANSI colour")
-    og.add_argument("--no-banner", action="store_true", help="do not print the logo")
-    og.add_argument("--json", metavar="FILE", help="write a JSON report to FILE")
-    og.add_argument("--md", metavar="FILE", help="write a Markdown report to FILE")
-    og.add_argument("--sarif", metavar="FILE",
+    og.add_argument("-q", "--quiet", action="store_true", default=d(False),
+                    help="suppress log chatter")
+    og.add_argument("--no-color", action="store_true", default=d(False),
+                    help="disable ANSI colour")
+    og.add_argument("--no-banner", action="store_true", default=d(False),
+                    help="do not print the logo")
+    og.add_argument("--json", metavar="FILE", default=d(None),
+                    help="write a JSON report to FILE")
+    og.add_argument("--md", metavar="FILE", default=d(None),
+                    help="write a Markdown report to FILE")
+    og.add_argument("--sarif", metavar="FILE", default=d(None),
                     help="write a SARIF 2.1.0 report to FILE (for GitHub Code Scanning)")
-    og.add_argument("--name", metavar="NAME",
+    og.add_argument("--name", metavar="NAME", default=d(None),
                     help="save this scan to the local store under NAME so "
                          "`mcpdx report NAME` can re-render it later (audit/scan/fuzz)")
 
     drift = argparse.ArgumentParser(add_help=False)
     dg = drift.add_argument_group("drift / rug-pull detection")
-    dg.add_argument("--baseline", metavar="FILE",
+    dg.add_argument("--baseline", metavar="FILE", default=d(None),
                     help="compare the current surface against a saved snapshot manifest "
                          "and report capability drift")
-    dg.add_argument("--watch", type=int, default=0, metavar="N",
+    dg.add_argument("--watch", type=int, default=d(0), metavar="N",
                     help="re-enumerate N extra times in-session and report any drift "
                          "(catches mid-session / post-usage capability swaps)")
-    dg.add_argument("--watch-interval", type=float, default=2.0, metavar="SEC",
+    dg.add_argument("--watch-interval", type=float, default=d(2.0), metavar="SEC",
                     help="seconds between --watch re-enumerations (default 2)")
+    return transport, output, drift
+
+
+def build_parser() -> argparse.ArgumentParser:
+    # Real-default copies live on the top-level parser so shared flags may be
+    # written before the subcommand; SUPPRESS copies go on each subcommand so a
+    # flag may also be written after it without clobbering (see _shared_parsers).
+    transport, output, drift = _shared_parsers(suppress=False)
+    p = argparse.ArgumentParser(
+        prog="mcpdx",
+        description="MCP server security assessment toolkit (authorized testing only).",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__.split("Examples")[1] if "Examples" in __doc__ else None,
+        parents=[transport, output, drift],
+    )
+    p.add_argument("--version", action="version", version=f"mcpdx {__version__}")
+
+    s_transport, s_output, s_drift = _shared_parsers(suppress=True)
 
     sub = p.add_subparsers(dest="command", metavar="<command>")
 
-    sp = sub.add_parser("enum", parents=[transport, output],
+    sp = sub.add_parser("enum", parents=[s_transport, s_output],
                         help="connect and enumerate tools/resources/prompts")
     sp.set_defaults(func=cmd_enum)
 
-    sp = sub.add_parser("snapshot", parents=[transport, output],
+    sp = sub.add_parser("snapshot", parents=[s_transport, s_output],
                         help="capture a manifest of the declared surface for later drift comparison")
     sp.add_argument("--out", default="mcpdx-manifest.json", metavar="FILE",
                     help="manifest output path (default mcpdx-manifest.json)")
     sp.set_defaults(func=cmd_snapshot)
 
-    sp = sub.add_parser("audit", parents=[transport, output, drift],
+    sp = sub.add_parser("audit", parents=[s_transport, s_output, s_drift],
                         help="enumerate + run the passive (static) security audit")
     sp.set_defaults(func=cmd_audit)
 
-    sp = sub.add_parser("scan", parents=[transport, output, drift],
+    sp = sub.add_parser("scan", parents=[s_transport, s_output, s_drift],
                         help="full assessment: enum + static audit + optional active fuzz")
     sp.add_argument("--active", action="store_true",
                     help="ALSO run active fuzzing (invokes tools — see authorization note)")
@@ -170,7 +208,7 @@ def build_parser() -> argparse.ArgumentParser:
                     help="cap payloads per family per parameter")
     sp.set_defaults(func=cmd_scan)
 
-    sp = sub.add_parser("fuzz", parents=[transport, output],
+    sp = sub.add_parser("fuzz", parents=[s_transport, s_output],
                         help="ACTIVE fuzzing of tool inputs (invokes tools)")
     sp.add_argument("--yes", action="store_true",
                     help="skip the active-testing authorization prompt")
@@ -180,7 +218,7 @@ def build_parser() -> argparse.ArgumentParser:
                     help="skip oversized/type-confusion robustness probes")
     sp.set_defaults(func=cmd_fuzz)
 
-    sp = sub.add_parser("call", parents=[transport, output],
+    sp = sub.add_parser("call", parents=[s_transport, s_output],
                         help="invoke a single tool / read a resource / get a prompt")
     sp.add_argument("--tool", help="tool name to call")
     sp.add_argument("--resource", help="resource URI to read")
@@ -192,7 +230,7 @@ def build_parser() -> argparse.ArgumentParser:
     # Offline: re-render a saved JSON report into other formats. No connection
     # is made — SARIF is consumed offline (CI upload), so it is decoupled from
     # the live scan and can be produced from a stored report.
-    sp = sub.add_parser("report", parents=[output],
+    sp = sub.add_parser("report", parents=[s_output],
                         help="re-render a saved scan to SARIF/Markdown offline (no connection)")
     sp.add_argument("input", nargs="?", metavar="NAME|REPORT.json",
                     help="a scan saved with --name, or a JSON report path written with --json")
@@ -427,7 +465,8 @@ def cmd_enum(args, log):
         print_surface(surface, log)
         if args.json:
             with open(args.json, "w", encoding="utf-8") as f:
-                json.dump({"session": _json_safe(session), "surface": surface}, f, indent=2)
+                json.dump({"session": _json_safe(session), "surface": surface}, f,
+                          indent=2, ensure_ascii=False)
             log.ok(f"JSON written: {args.json}")
     finally:
         transport.close()
@@ -628,8 +667,16 @@ def cmd_report(args, log):
     surface = doc.get("surface", {}) or {}
     findings = []
     for d in doc["findings"]:
-        if isinstance(d, dict):
-            findings.append(R.Finding(**{k: d[k] for k in _FINDING_FIELDS if k in d}))
+        if not isinstance(d, dict):
+            continue
+        # Required Finding fields get safe fallbacks so a slightly-malformed (but
+        # valid-JSON) report still renders instead of crashing with a TypeError.
+        fields = {k: d[k] for k in _FINDING_FIELDS if k in d}
+        fields.setdefault("id", "?")
+        fields.setdefault("title", "(untitled finding)")
+        fields.setdefault("severity", "INFO")
+        fields.setdefault("category", "unknown")
+        findings.append(R.Finding(**fields))
     log.ok(f"loaded {len(findings)} finding(s) from {path}")
 
     wrote = False
@@ -685,6 +732,11 @@ def main(argv=None) -> int:
     if not getattr(args, "command", None):
         parser.print_help()
         return 0
+
+    # Union the repeatable flags collected before the subcommand (pre_*) with
+    # those after it, so e.g. `-H A audit -H B` keeps both headers.
+    args.header = getattr(args, "pre_header", []) + getattr(args, "header", [])
+    args.env = getattr(args, "pre_env", []) + getattr(args, "env", [])
 
     log = make_logger(args)
     if not args.no_banner and not args.quiet:

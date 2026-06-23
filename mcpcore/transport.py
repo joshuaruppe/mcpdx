@@ -127,7 +127,7 @@ class LocalTransport(BaseTransport):
                 self.log.debug(self.log.c(f"[server stderr] {line}", ""))
 
     def send_message(self, obj: dict) -> None:
-        if not self.proc or self.proc.poll() is not None:
+        if not self.proc or self.proc.poll() is not None or self.proc.stdin is None:
             raise TransportError("server process is not running")
         data = json.dumps(obj, ensure_ascii=False)
         if self.log.is_trace:
@@ -135,7 +135,10 @@ class LocalTransport(BaseTransport):
         try:
             self.proc.stdin.write(data + "\n")
             self.proc.stdin.flush()
-        except (BrokenPipeError, OSError) as e:
+        # ValueError covers "I/O operation on closed file" (stdin closed under a
+        # race with close()); surface all of these as a clean TransportError
+        # rather than letting them escape as an "unexpected error".
+        except (BrokenPipeError, ValueError, OSError) as e:
             raise TransportError(f"failed to write to server: {e}") from e
 
     def close(self) -> None:
@@ -223,13 +226,19 @@ class HttpTransport(BaseTransport):
                 detail = e.read().decode("utf-8", "replace")[:500]
             except Exception:
                 pass
-            # Surface as a synthetic error response so the client/audit see it.
-            self._enqueue({
-                "jsonrpc": "2.0",
-                "id": obj.get("id"),
-                "error": {"code": e.code, "message": f"HTTP {e.code} {e.reason}", "data": detail},
-            })
-            if not is_notification:
+            if is_notification:
+                # No request id to correlate against; an enqueued error response
+                # would just be an orphan nobody awaits. Log it and move on.
+                self.log.debug(f"HTTP {e.code} {e.reason} on notification "
+                               f"{obj.get('method')}")
+            else:
+                # Surface as a synthetic error response so the client/audit see it.
+                self._enqueue({
+                    "jsonrpc": "2.0",
+                    "id": obj.get("id"),
+                    "error": {"code": e.code, "message": f"HTTP {e.code} {e.reason}",
+                              "data": detail},
+                })
                 self.log.warn(f"HTTP {e.code} {e.reason} on {obj.get('method')}")
         except urllib.error.URLError as e:
             raise TransportError(f"connection failed: {e.reason}") from e

@@ -31,6 +31,13 @@ class Finding:
     recommendation: str = ""     # remediation guidance
     metadata: Dict[str, Any] = field(default_factory=dict)
 
+    def __post_init__(self):
+        # Normalize severity to a canonical level so sorting, exit codes, and the
+        # summary counts can't silently disagree (e.g. an externally-loaded report
+        # with "High" or a typo would otherwise be dropped from the summary).
+        sev = str(self.severity or "").strip().upper()
+        self.severity = sev if sev in SEVERITY_ORDER else "INFO"
+
     def to_dict(self) -> dict:
         return asdict(self)
 
