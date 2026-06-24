@@ -97,15 +97,17 @@ python mcpdx.py scan --local "python examples/vulnerable_server.py" --active --y
 
 ## Subcommands
 
-| Command | What it does | Touches the target? |
-|---------|--------------|---------------------|
-| `enum`  | Connect + list tools, resources, templates, prompts | read-only handshake |
-| `snapshot` | Capture a manifest of the declared surface for later drift comparison | read-only |
-| `audit` | `enum` + **passive** static security audit (+ drift, HTTP probes) | read-only |
-| `scan`  | `audit` + **optional** active fuzz (`--active`) | read-only, or active w/ flag |
-| `fuzz`  | **Active** fuzzing of tool inputs only | **yes, invokes tools** |
-| `call`  | Manually invoke one tool / read a resource / get a prompt | yes (one call) |
-| `report` | Re-render a saved scan (by `--name` or path) to SARIF / Markdown **offline**; `--list` to list saved scans | no (reads a file) |
+| Command | What it does | Target impact |
+|---------|--------------|---------------|
+| `enum`  | Connect + list tools, resources, templates, prompts | 🟢 read-only handshake |
+| `snapshot` | Capture a manifest of the declared surface for later drift comparison | 🟢 read-only |
+| `audit` | `enum` + **passive** static security audit (+ drift, HTTP probes) | 🟢 read-only |
+| `scan`  | `audit` + **optional** active fuzz (`--active`) | 🟡 read-only · 🔴 active with `--active` |
+| `fuzz`  | **Active** fuzzing of tool inputs only | 🔴 invokes tools |
+| `call`  | Manually invoke one tool / read a resource / get a prompt | 🔴 one call |
+| `report` | Re-render a saved scan (by `--name` or path) to SARIF / Markdown **offline**; `--list` to list saved scans | ⚪ no connection |
+
+<sub>🟢 read-only · 🟡 conditional · 🔴 invokes the target's tools · ⚪ offline / no connection</sub>
 
 ## Flags
 
@@ -174,6 +176,12 @@ python mcpdx.py enum --local "npx -y @modelcontextprotocol/server-filesystem ./d
 # Passive audit of a remote HTTP server, verbose, export Markdown
 python mcpdx.py audit --http https://mcp.example.com/mcp -v --md report.md \
     -H "Authorization: Bearer $TOKEN"
+
+# Audit an HTTPS server with a self-signed / untrusted cert (skip TLS verification).
+# Transport flags like --insecure may go before or after the subcommand.
+python mcpdx.py audit --http https://mcp.internal:8443/mcp --insecure \
+    -H "Authorization: Bearer $TOKEN"
+python mcpdx.py --insecure audit --http https://mcp.internal:8443/mcp   # same thing
 
 # Full assessment including ACTIVE fuzzing, JSON + Markdown reports
 python mcpdx.py scan --local "python my_server.py" --active --json out.json --md out.md
